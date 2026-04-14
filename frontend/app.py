@@ -2,8 +2,11 @@ import streamlit as st
 import torch
 import pandas as pd
 import plotly.express as px
+import numpy as np
+import shap
+import matplotlib.pyplot as plt
 from pathlib import Path
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,10 +35,6 @@ st.markdown("""
 @st.cache_resource
 def load_models():
     models_dir = PROJECT_ROOT / "models"
-
-    # =========================
-    # Emotion classifier
-    # =========================
     clf_path = models_dir / "emotion_model"
 
     clf_tokenizer = AutoTokenizer.from_pretrained(
@@ -49,21 +48,40 @@ def load_models():
         local_files_only=True
     )
 
-    return clf_tokenizer, clf_model
+    device = 0 if torch.cuda.is_available() else -1
+    if device == 0:
+        clf_model.cuda()
+
+    pred_pipeline = pipeline(
+        "text-classification",
+        model=clf_model,
+        tokenizer=clf_tokenizer,
+        device=device,
+        return_all_scores=True
+    )
+
+    explainer = shap.Explainer(pred_pipeline)
+
+    return clf_tokenizer, clf_model, explainer
+
+
+def get_class_names(model):
+    fallback = ['sadness', 'joy', 'love', 'anger', 'fear', 'surprise']
+    id2label = getattr(model.config, "id2label", None)
+    num_labels = int(getattr(model.config, "num_labels", len(fallback)))
+
+    if not isinstance(id2label, dict):
+        return fallback
+
+    labels = [str(id2label.get(i, id2label.get(str(i), f"label_{i}"))).lower() for i in range(num_labels)]
+    generic = all(label.replace("label_", "").isdigit() for label in labels)
+    if generic and len(labels) == len(fallback):
+        return fallback
+    return labels if labels else fallback
 
 try:
-    clf_tokenizer, clf_model = load_models()
-    fallback_classes = ['sadness', 'joy', 'love', 'anger', 'fear', 'surprise']
-    id2label = getattr(clf_model.config, "id2label", None)
-    if isinstance(id2label, dict) and len(id2label) == int(clf_model.config.num_labels):
-        raw_classes = [str(id2label.get(i, id2label.get(str(i), f"label_{i}"))).lower() for i in range(int(clf_model.config.num_labels))]
-        uses_generic_labels = all(label.replace("label_", "").isdigit() for label in raw_classes)
-        if uses_generic_labels and len(raw_classes) == len(fallback_classes):
-            classes = fallback_classes
-        else:
-            classes = raw_classes
-    else:
-        classes = fallback_classes
+    clf_tokenizer, clf_model, explainer = load_models()
+    classes = get_class_names(clf_model)
 except Exception as e:
     st.error(f"Model loading error: {e}")
     st.stop()
@@ -111,10 +129,10 @@ st.title("MoodLens AI: Emotion Detection")
 st.markdown("Analyze emotions with model confidence and visualization.")
 
 col1, col2 = st.columns(2)
+shap_exp = None
+shap_plot_error = None
+pred = None
 
-# =========================
-# 📥 INPUT
-# =========================
 with col1:
     st.subheader("Input Text")
 
@@ -140,9 +158,6 @@ with col1:
 
     predict_button = st.button("Analyze Emotion")
 
-# =========================
-# 📊 OUTPUT
-# =========================
 with col2:
     st.subheader("Results")
 
@@ -177,13 +192,49 @@ with col2:
         fig.update_layout(height=300)
         st.plotly_chart(fig, use_container_width=True)
 
+        try:
+            shap_values = explainer([user_input])
+            shap_exp = shap_values[0, :, pred]
+        except Exception as e:
+            shap_plot_error = e
+
     elif predict_button:
         st.warning("Please enter text.")
     else:
         st.info("Enter text and click analyze.")
 
-# =========================
-# FOOTER
-# =========================
+if predict_button and user_input.strip() != "":
+    st.markdown("### SHAP Explanations (Predicted Emotion)")
+
+    if shap_exp is not None:
+        summary_col, force_col = st.columns(2)
+        summary_col.markdown("#### Summary Plot")
+        class_shap_values = np.array([shap_exp.values])
+        token_names = [str(token) for token in shap_exp.data]
+
+        plt.figure(figsize=(7, 4))
+        shap.summary_plot(
+            class_shap_values,
+            feature_names=token_names,
+            plot_type='bar',
+            show=False
+        )
+        summary_col.pyplot(plt.gcf(), use_container_width=True)
+        plt.close()
+
+        force_col.markdown("#### Force Plot")
+        plt.figure(figsize=(10, 2.6))
+        shap.force_plot(
+            shap_exp.base_values,
+            shap_exp.values,
+            shap_exp.data,
+            matplotlib=True,
+            show=False
+        )
+        force_col.pyplot(plt.gcf(), use_container_width=True)
+        plt.close()
+    elif shap_plot_error is not None:
+        st.warning(f"Could not generate SHAP plots: {shap_plot_error}")
+
 st.markdown("---")
 st.caption("© 2026 Dev Dharmesh Patel | MoodLens AI")
