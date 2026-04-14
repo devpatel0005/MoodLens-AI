@@ -26,7 +26,6 @@ mlruns/
 # Large model/checkpoint artifacts (except your tracked sentiment_model files)
 checkpoints/
 artifacts/
-models/
 *.ckpt
 *.pt
 *.pth
