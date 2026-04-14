@@ -1,0 +1,38 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments and local Python installs
+.venv/
+venv/
+env/
+ENV/
+torch/
+.env
+# Jupyter
+.ipynb_checkpoints/
+
+# Local editor settings
+.vscode/
+
+# Training and experiment artifacts
+logs/
+runs/
+wandb/
+mlruns/
+
+# Large model/checkpoint artifacts (except your tracked sentiment_model files)
+checkpoints/
+artifacts/
+models/
+*.ckpt
+*.pt
+*.pth
+*.onnx
+
+# Data and temporary outputs
+tmp/
+temp/
+*.tmp
