@@ -158,8 +158,11 @@ with st.sidebar:
 - Streamlit
 - PyTorch
 - Hugging Face Transformers
+- SHAP
 - Plotly
 - Pandas
+- NumPy
+- Matplotlib
 """)
 
 # =========================
