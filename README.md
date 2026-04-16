@@ -82,7 +82,6 @@ Emotion classes supported:
 - Python
 - Streamlit
 - PyTorch
-- Torchvision
 - Hugging Face Transformers
 - SHAP
 - Plotly
