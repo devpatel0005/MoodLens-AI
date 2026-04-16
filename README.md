@@ -1,15 +1,26 @@
 # MoodLens AI
 
-Emotion intelligence web app that classifies text into **six emotions** using a **fine-tuned RoBERTa** model, with built-in **SHAP explainability** to show *why* the model predicted a given emotion.
+MoodLens AI is an explainable NLP application that detects emotions in text using a fine-tuned RoBERTa classifier and shows why predictions are made through SHAP token-level explanations.
 
-**Developer:** [Dev Dharmesh Patel](https://github.com/devpatel0005)  
-**Email:** [devdpatel0005@gmail.com](mailto:devdpatel0005@gmail.com)
+Live Application: https://moodlens-ai-igo7kb8nrjmvmrcqhti9xy.streamlit.app/
+
+Developer: Dev Dharmesh Patel  
+GitHub: https://github.com/devpatel0005  
+Email: devdpatel0005@gmail.com
 
 ---
 
-## What it does
-Given a piece of text, MoodLens AI predicts the emotional tone across the following classes:
+## Project Summary
+This project solves a practical problem in applied NLP: most emotion classifiers return only a label, but do not explain decision logic. MoodLens AI provides both prediction and interpretability in one product-style interface.
 
+For each input sentence, the app provides:
+- Predicted emotion class
+- Confidence score
+- Per-class confidence distribution chart
+- SHAP Summary Plot for token importance
+- SHAP Force Plot for token contribution direction
+
+Emotion classes supported:
 - sadness
 - joy
 - love
@@ -17,39 +28,45 @@ Given a piece of text, MoodLens AI predicts the emotional tone across the follow
 - fear
 - surprise
 
-It also provides interpretable explanations (SHAP) focused on the **predicted class only**, so users can see which tokens influenced the result.
+---
+
+## Project Highlights
+- Built and deployed an end-to-end explainable AI web app for emotion detection.
+- Integrated Hugging Face Transformers with Streamlit for real-time NLP inference.
+- Implemented SHAP explainability in production-style UI using predicted-class token attributions.
+- Added confidence distribution visualization for transparent model behavior.
+- Added robust class-label mapping logic to normalize LABEL_X outputs into human-readable class names.
+- Optimized inference flow using cached model loading and optional CUDA support.
+- Deployed the app publicly and maintained dependency reliability for cloud runtime.
 
 ---
 
-## Why this project matters
-Most emotion-classification demos stop at “here’s the label.” MoodLens AI is built like a small product:
-- fast interactive inference (Streamlit)
-- confidence + per-class probability breakdown
-- explainability visuals (SHAP) that make predictions auditable and easier to trust
+## Model and Explainability Details
 
----
+### Base Model
+- Architecture: RoBERTa sequence classifier
+- Framework: Hugging Face Transformers + PyTorch
+- Output: six-class emotion probabilities
 
-## Key Contributions
-- Built an end-to-end NLP web application using a **fine-tuned RoBERTa** classifier for **6-class emotion detection**.
-- Implemented a **Streamlit** UI for real-time predictions, confidence scoring, and a **class-probability distribution** chart.
-- Integrated **SHAP explainability** to visualize token-level influence for the **predicted emotion only** (cleaner, more actionable explanations).
-- Added SHAP **Force Plot** and **Summary Plot** views inside the app for interpretability and debugging.
-- Implemented robust label-mapping fallback logic to convert generic model outputs (e.g., `LABEL_0`) into human-readable emotion names.
-- Improved responsiveness via cached model/tokenizer loading and local model artifacts; supports CUDA when available.
+### Explainability Layer
+- Method: SHAP (SHapley Additive exPlanations)
+- Explainer input: text classification pipeline
+- Scope: explanations are generated for the predicted class
+- Visual outputs:
+  - Summary bar plot: token impact magnitude
+  - Force plot: token push-up and push-down effects from baseline to final score
 
----
-
-## UI Screenshots
-
-### 1) Main Dashboard and Prediction Results
-![Main Dashboard and Prediction Results](docs/images/moodlens-main-dashboard.png)
-
-### 2) SHAP Explanations (Summary Plot + Force Plot)
-![SHAP Explanations](docs/images/moodlens-shap-explanations.png)
+### Inference Pipeline
+1. User input is collected through Streamlit UI.
+2. Pipeline performs tokenization and model inference.
+3. Probabilities are ranked and displayed as chart + metric.
+4. SHAP explainer computes token-level contributions.
+5. Summary and force plots are rendered in the app.
 
 ---
 
 ## Model Performance (Test Set)
+
 | Emotion | Precision | Recall | F1-Score |
 | :--- | :---: | :---: | :---: |
 | Sadness | 0.97 | 0.98 | 0.97 |
@@ -62,65 +79,83 @@ Most emotion-classification demos stop at “here’s the label.” MoodLens AI 
 ---
 
 ## Tech Stack
-- Python, PyTorch
-- Hugging Face Transformers
+- Python
 - Streamlit
+- PyTorch
+- Torchvision
+- Hugging Face Transformers
 - SHAP
 - Plotly
-- Pandas, NumPy, Matplotlib
+- Pandas
+- NumPy
+- Matplotlib
 - scikit-learn
 
 ---
 
-## Project Architecture
-1. User enters text in the Streamlit UI.
-2. Tokenizer preprocesses input for the RoBERTa classifier.
-3. Model outputs logits → softmax probabilities.
-4. UI displays:
-   - predicted emotion + confidence
-   - per-class confidence bar chart
-5. SHAP explainer computes token contributions.
-6. UI renders predicted-class-only:
-   - Summary Plot
-   - Force Plot
+## Repository Structure
+- frontend/app.py: Streamlit application logic, inference workflow, SHAP rendering
+- models/emotion_model/: trained model artifacts and tokenizer files
+- notebooks/Emotion_detection.ipynb: model development and evaluation workflow
+- notebooks/shap.ipynb: SHAP experimentation and interpretation workflow
+- datasets/emotion_predictions_full.csv: project data artifact
+- requirements.txt: deployment and local dependency list
+- docs/: documentation assets
 
 ---
 
-## Quick Start
-1. Clone the repository:
+## Local Setup and Run
+
+### 1) Clone Repository
 ```bash
 git clone https://github.com/devpatel0005/MoodLens-AI.git
 cd MoodLens-AI
 ```
 
-2. Install dependencies:
+### 2) Install Dependencies
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-3. Run the app:
+### 3) Run Streamlit App
 ```bash
 streamlit run frontend/app.py
 ```
 
 ---
 
-## Repository Structure
-- `frontend/app.py` — Streamlit app, inference flow, SHAP visualizations
-- `models/emotion_model/` — saved tokenizer + classifier weights
-- `notebooks/Emotion_detection.ipynb` — training + evaluation workflow
-- `notebooks/shap.ipynb` — SHAP experimentation and interpretability analysis
-- `datasets/emotion_predictions_full.csv` — development artifacts
-- `requirements.txt` — dependencies
+## Deployment Notes
+- Live deployment is running on Streamlit Cloud.
+- Ensure all required libraries are listed in requirements.txt before deploy.
+- Current dependency set includes plotly and torchvision to prevent cloud import errors.
+- Model files are loaded from local project paths in the deployed environment.
 
 ---
 
-## Future Improvements
-- Add confidence thresholding + low-confidence fallback messaging.
-- Add input cleaning + optional punctuation filtering for SHAP token display.
-- Add lightweight monitoring metrics and a batch inference endpoint.
+## Skills Demonstrated
+- End-to-end machine learning productization
+- NLP model integration and inference engineering
+- Explainable AI implementation in user-facing applications
+- Data visualization for model confidence communication
+- Cloud deployment debugging and dependency management
+- UI/UX iteration for ML applications
+
+---
+
+## Limitations
+- Predictions may be less reliable on very short or ambiguous text.
+- SHAP explanations are local and input-specific, not full causal proofs.
+- Domain shift can affect generalization on unseen language styles.
+
+---
+
+## Planned Improvements
+- Confidence thresholding and low-confidence fallback messaging
+- Batch inference support for multiple texts
+- Additional explainability views for class comparison
+- Monitoring and lightweight analytics for production usage
 
 ---
 
 ## License
-This project is for educational and portfolio use.
+This repository is for educational and portfolio purposes.
