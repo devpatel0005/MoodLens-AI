@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # --- PAGE CONFIG ---
 st.set_page_config(
-    page_title="MoodLens AI | Dev Dharmesh Patel",
+    page_title="MoodlensAI | Explainable Emotion Intelligence",
     page_icon="🧠",
     layout="wide"
 )
@@ -25,6 +25,26 @@ st.markdown("""
 .stButton>button {
     width: 100%; border-radius: 8px; height: 3.5em;
     background-color: #007BFF; color: white; font-weight: bold;
+}
+.hero-header {
+    background: linear-gradient(135deg, #dbeafe 0%, #eef4ff 100%);
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 14px 16px 12px 16px;
+    margin-bottom: 12px;
+}
+.hero-title {
+    margin: 0;
+    font-size: 3.1rem;
+    line-height: 1.05;
+    font-weight: 800;
+    color: #0b1f44 !important;
+}
+.hero-subtitle {
+    margin: 8px 0 0 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e3a5f !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -62,7 +82,7 @@ def load_models():
 
     explainer = shap.Explainer(pred_pipeline)
 
-    return clf_tokenizer, clf_model, explainer
+    return clf_model, pred_pipeline, explainer
 
 
 def get_class_names(model):
@@ -79,8 +99,28 @@ def get_class_names(model):
         return fallback
     return labels if labels else fallback
 
+
+def get_pipeline_scores(text, pred_pipeline, classes):
+    raw_scores = pred_pipeline(text)
+    if isinstance(raw_scores, list) and raw_scores and isinstance(raw_scores[0], list):
+        raw_scores = raw_scores[0]
+
+    score_by_label = {}
+    for item in raw_scores:
+        label = str(item.get("label", "")).lower()
+        score = float(item.get("score", 0.0))
+
+        if label.startswith("label_") and label[6:].isdigit():
+            idx = int(label[6:])
+            if 0 <= idx < len(classes):
+                label = classes[idx]
+
+        score_by_label[label] = score
+
+    return [score_by_label.get(label, 0.0) for label in classes]
+
 try:
-    clf_tokenizer, clf_model, explainer = load_models()
+    clf_model, pred_pipeline, explainer = load_models()
     classes = get_class_names(clf_model)
 except Exception as e:
     st.error(f"Model loading error: {e}")
@@ -125,8 +165,15 @@ with st.sidebar:
 # =========================
 # 🎨 MAIN UI
 # =========================
-st.title("MoodLens AI: Emotion Detection")
-st.markdown("Analyze emotions with model confidence and visualization.")
+st.markdown(
+    """
+    <div class="hero-header">
+        <h1 class="hero-title">MoodlensAI</h1>
+        <p class="hero-subtitle">Explainable Emotion Intelligence</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 col1, col2 = st.columns(2)
 shap_exp = None
@@ -162,41 +209,40 @@ with col2:
     st.subheader("Results")
 
     if predict_button and user_input.strip() != "":
+        with st.spinner("Analyzing text and preparing SHAP explanations..."):
+            # ---- Emotion Prediction ----
+            probs = get_pipeline_scores(user_input, pred_pipeline, classes)
+            pred = int(np.argmax(probs))
+            emotion = classes[pred]
+            conf = probs[pred]
 
-        # ---- Emotion Prediction ----
-        inputs = clf_tokenizer(user_input, return_tensors="pt", truncation=True, padding=True)
+            # ---- Display Emotion ----
+            st.metric("Detected Emotion", emotion.upper(), f"{conf:.2%} Confidence")
 
-        with torch.no_grad():
-            outputs = clf_model(**inputs)
+            # ---- Chart ----
+            df = pd.DataFrame({
+                'Emotion': [c.capitalize() for c in classes],
+                'Confidence': probs
+            }).sort_values("Confidence", ascending=True)
 
-        logits = outputs.logits
-        probs = torch.nn.functional.softmax(logits, dim=1).flatten()
+            fig = px.bar(
+                df,
+                x='Confidence',
+                y='Emotion',
+                orientation='h',
+                text='Confidence',
+                color_discrete_sequence=['#007BFF']
+            )
+            fig.update_traces(texttemplate='%{text:.2%}', textposition='outside', hovertemplate='%{y}: %{x:.2%}<extra></extra>')
+            fig.update_xaxes(range=[0, 1], tickformat='.0%')
+            fig.update_layout(height=320, showlegend=False, margin=dict(l=8, r=8, t=8, b=8))
+            st.plotly_chart(fig, use_container_width=True)
 
-        pred = torch.argmax(logits, dim=1).item()
-        emotion = classes[pred]
-        conf = probs[pred].item()
-
-        # ---- Display Emotion ----
-        st.metric("Detected Emotion", emotion.upper(), f"{conf:.2%} Confidence")
-
-        # ---- Chart ----
-        df = pd.DataFrame({
-            'Emotion': [c.capitalize() for c in classes],
-            'Confidence': probs.tolist()
-        })
-
-        fig = px.bar(df, x='Confidence', y='Emotion',
-                     orientation='h', color='Confidence',
-                     text_auto='.2%')
-
-        fig.update_layout(height=300)
-        st.plotly_chart(fig, use_container_width=True)
-
-        try:
-            shap_values = explainer([user_input])
-            shap_exp = shap_values[0, :, pred]
-        except Exception as e:
-            shap_plot_error = e
+            try:
+                shap_values = explainer([user_input])
+                shap_exp = shap_values[0, :, pred]
+            except Exception as e:
+                shap_plot_error = e
 
     elif predict_button:
         st.warning("Please enter text.")
@@ -237,4 +283,5 @@ if predict_button and user_input.strip() != "":
         st.warning(f"Could not generate SHAP plots: {shap_plot_error}")
 
 st.markdown("---")
+st.caption("Model: local transformer emotion classifier (6 classes) | Explainability: SHAP local explanations | Limitation: short/ambiguous text can reduce reliability")
 st.caption("© 2026 Dev Dharmesh Patel | MoodLens AI")
