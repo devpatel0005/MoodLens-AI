@@ -78,6 +78,19 @@ Emotion classes supported:
 
 ---
 
+## Dataset Summary
+
+The emotion detection model is trained and evaluated on a comprehensive Twitter emotion dataset:
+
+**Dataset Overview:**
+- **Total Samples**: 16,000 rows
+- **Total Features**: 3 columns
+  - `text`: Raw Twitter text/emotion statements
+  - `label`: Actual emotion class (0-5)
+  - `predicted_label`: Model's prediction
+
+---
+
 ## Tech Stack
 - Python
 - Streamlit
